@@ -13,3 +13,5 @@ var To = legacy.Websocket.Emit
 var Add = legacy.Websocket.Add
 var Rem = legacy.Websocket.Rem
 var Keep = legacy.Websocket.Keep
+var On = legacy.Websocket.On
+var Purge = legacy.Websocket.Purge

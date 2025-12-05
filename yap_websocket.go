@@ -2,7 +2,6 @@ package yap
 
 import (
 	"encoding/json"
-	"fmt"
 	"slices"
 	"strings"
 	"sync"
@@ -66,7 +65,6 @@ func (controller *websocket_controller) read_forever(c *websocket.Conn, c_data *
 			return
 		}
 
-		fmt.Println("yap.websocket_controller::read_forever message", string(message))
 		temp := message_from_websocket{}
 		marsh_err := blame.O0(json.Unmarshal(message, &temp))
 		if marsh_err != nil {
@@ -92,8 +90,6 @@ func (controller *websocket_controller) read_forever(c *websocket.Conn, c_data *
 }
 
 func (controller *websocket_controller) write_forever(c *websocket.Conn, c_data *websocket_client_data, read_error chan error) error {
-	fmt.Println("yap.websocket_controller::write_forever begin")
-	defer fmt.Println("yap.websocket_controller::write_forever end")
 	for {
 		c_data.guard.Lock()
 		snapshot := controller.snapshot_cache_filtered(c_data.subscriptions)
@@ -137,7 +133,6 @@ func (controller *websocket_controller) write_forever(c *websocket.Conn, c_data 
 		}
 		select {
 		case err := <-read_error:
-			fmt.Println("yap.websocket_controller::write_forever error while reading message", err)
 			return err
 		case <-time.After(controller.interval):
 		}
@@ -182,6 +177,23 @@ func (controller *websocket_controller) Keep(receiver string, amount int) {
 	controller.guard.Unlock()
 }
 
+func (controller *websocket_controller) Purge(receiver string) {
+	controller.guard.Lock()
+	r := controller.lookup(receiver)
+	r.entries = make([][]byte, 0)
+
+	for _, v := range controller.connections {
+		v.guard.Lock()
+		_, has_index := v.index[receiver]
+		if has_index {
+			v.index[receiver] = 0
+		}
+		v.guard.Unlock()
+	}
+
+	controller.guard.Unlock()
+}
+
 func (controller *websocket_controller) Emit(receiver string, args ...any) error {
 	if controller == nil || controller.connections == nil {
 		return nil
@@ -200,6 +212,9 @@ func (controller *websocket_controller) Emit(receiver string, args ...any) error
 	controller.guard.Lock()
 	r := controller.lookup(receiver)
 	r.entries = append(r.entries, data)
+	if len(r.entries) >= r.keep {
+		r.entries = append([][]byte{}, r.entries[1:]...)
+	}
 	_, has_changes := controller.changes[receiver]
 	if !has_changes {
 		controller.changes[receiver] = 0
