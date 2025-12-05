@@ -177,21 +177,21 @@ func (controller *websocket_controller) Keep(receiver string, amount int) {
 	controller.guard.Unlock()
 }
 
-func (controller *websocket_controller) Purge(receiver string) {
-	controller.guard.Lock()
-	r := controller.lookup(receiver)
-	r.entries = make([][]byte, 0)
-
-	for _, v := range controller.connections {
-		v.guard.Lock()
-		_, has_index := v.index[receiver]
-		if has_index {
-			v.index[receiver] = 0
+func (controller *websocket_controller) Purge(receivers ...string) {
+	for _, receiver := range receivers {
+		controller.guard.Lock()
+		r := controller.lookup(receiver)
+		r.entries = make([][]byte, 0)
+		for _, v := range controller.connections {
+			v.guard.Lock()
+			_, has_index := v.index[receiver]
+			if has_index {
+				v.index[receiver] = 0
+			}
+			v.guard.Unlock()
 		}
-		v.guard.Unlock()
+		controller.guard.Unlock()
 	}
-
-	controller.guard.Unlock()
 }
 
 func (controller *websocket_controller) Emit(receiver string, args ...any) error {
