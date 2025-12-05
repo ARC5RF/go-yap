@@ -24,29 +24,6 @@ func index() string {
 
 func homePage(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, index())
-	// fmt.Fprintf(w, "Home Page")
-}
-
-// define a reader which will listen for
-// new messages being sent to our WebSocket
-// endpoint
-func reader(conn *websocket.Conn) {
-	for {
-		// read in a message
-		_, _, err := conn.ReadMessage()
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		// print out that message for clarity
-		// fmt.Println(messageType, string(p))
-
-		// if err := conn.WriteMessage(messageType, p); err != nil {
-		// 	log.Println(err)
-		// 	return
-		// }
-
-	}
 }
 
 type example_for_websocket struct{}

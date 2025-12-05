@@ -17,7 +17,6 @@ type websocket_client_data struct {
 	guard         *sync.Mutex
 	subscriptions []string
 	index         map[string]int
-	handlers      []*client_message_handler
 }
 
 type receiver_cache struct {
@@ -35,6 +34,7 @@ type websocket_controller struct {
 	default_keep                 int
 	insert_spaces_between_tokens bool
 	interval                     time.Duration
+	handlers                     []*client_message_handler
 }
 
 func (controller *websocket_controller) snapshot_cache_filtered(subscriptions []string) map[string]*receiver_cache {
@@ -59,13 +59,14 @@ func (controller *websocket_controller) read_forever(c *websocket.Conn, c_data *
 		_, message, ws_read_err := blame.O2(c.ReadMessage())
 		if ws_read_err != nil {
 			if strings.Contains(ws_read_err.Error(), "1001 (going away)") {
-				read_error <- nil
+				controller.guard.Lock()
 				return
 			}
 			read_error <- ws_read_err.WithAdditionalContext("websocket failed to read")
 			return
 		}
 
+		fmt.Println("yap.websocket_controller::read_forever message", string(message))
 		temp := message_from_websocket{}
 		marsh_err := blame.O0(json.Unmarshal(message, &temp))
 		if marsh_err != nil {
@@ -73,9 +74,9 @@ func (controller *websocket_controller) read_forever(c *websocket.Conn, c_data *
 			return
 		}
 
-		c_data.guard.Lock()
-		h_snapshot := append([]*client_message_handler{}, c_data.handlers...)
-		c_data.guard.Unlock()
+		controller.guard.Lock()
+		h_snapshot := append([]*client_message_handler{}, controller.handlers...)
+		controller.guard.Unlock()
 
 		for _, h := range h_snapshot {
 			if h.receiver == temp.Receiver {
@@ -146,7 +147,7 @@ func (controller *websocket_controller) write_forever(c *websocket.Conn, c_data 
 func (controller *websocket_controller) Add(c *websocket.Conn, subscriptions ...string) error {
 	// snapshot := hub.snapshot_cache_filtered(subscriptions)
 	controller.guard.Lock()
-	c_data := &websocket_client_data{&sync.Mutex{}, subscriptions, map[string]int{}, []*client_message_handler{}}
+	c_data := &websocket_client_data{&sync.Mutex{}, subscriptions, map[string]int{}}
 	controller.connections[c] = c_data
 	controller.guard.Unlock()
 
@@ -207,6 +208,12 @@ func (controller *websocket_controller) Emit(receiver string, args ...any) error
 	controller.guard.Unlock()
 
 	return nil
+}
+
+func (controller *websocket_controller) On(receiver string, callback func([]byte) error) {
+	controller.guard.Lock()
+	controller.handlers = append(controller.handlers, &client_message_handler{receiver: receiver, callback: callback})
+	controller.guard.Unlock()
 }
 
 type token struct {

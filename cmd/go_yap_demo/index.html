@@ -12,6 +12,11 @@
         <script>
             let socket = new WebSocket("ws://127.0.0.1:8080/ws");
             console.log("Attempting Connection...");
+            window.foo = function () {
+                socket.send(
+                    JSON.stringify({ Receiver: "client.foo", Data: "bar" }),
+                );
+            };
 
             socket.onopen = () => {
                 console.log("Successfully Connected");

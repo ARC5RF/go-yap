@@ -37,8 +37,8 @@ func New(logfile, terminal Output, default_keep, poll_interval_ms int, insert_sp
 	controller.priority = []string{}
 	controller.default_keep = default_keep
 	controller.interval = time.Millisecond * time.Duration(poll_interval_ms)
+	controller.handlers = []*client_message_handler{}
 	inst := &impl{logfile, terminal, controller, insert_spaces}
-	// hub.log = inst.Log
 
 	return inst
 }

@@ -38,6 +38,11 @@ func main() {
 	mux.HandleFunc("/", homePage)
 	mux.HandleFunc("/ws", wsEndpoint)
 
+	console.Websocket.On("client.foo", func(b []byte) error {
+		console.Log(string(b))
+		return nil
+	})
+
 	srv := &http.Server{
 		Addr:    ":8080",
 		Handler: mux,
