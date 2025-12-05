@@ -1,0 +1,6 @@
+github.com/ARC5RF/go-blame v0.0.0-20251202020831-edadaf76c87d h1:DFMRVqpfZ6iCxbwz4FPhnImoG88uvV3oPZ/bWSvELCg=
+github.com/ARC5RF/go-blame v0.0.0-20251202020831-edadaf76c87d/go.mod h1:HzBosufHoSrpqCLpLW5etk/EDfDNbjGRCJWd3MmGGlQ=
+github.com/ARC5RF/go-ulid v0.0.0-20251205043202-90240be34348 h1:C3nQZ8qHEdBEgSsk2Jobcjl5RKCtWpiPCupBUNGfa1M=
+github.com/ARC5RF/go-ulid v0.0.0-20251205043202-90240be34348/go.mod h1:AW4dRIg5rkWG3VZN4rC9hIIlQG2iQPFuxDVYXsVHCUQ=
+github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=
+github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
