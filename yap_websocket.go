@@ -101,6 +101,10 @@ func (controller *websocket_controller) write_forever(c *websocket.Conn, c_data 
 			}
 
 			c_data.guard.Lock()
+			if len(r.entries) == 0 {
+				c_data.guard.Unlock()
+				continue
+			}
 			r_snapshot := append([][]byte{}, r.entries...)
 			r_len := len(r_snapshot)
 			idx, has_idx := c_data.index[k]
@@ -119,11 +123,12 @@ func (controller *websocket_controller) write_forever(c *websocket.Conn, c_data 
 			for changes > idx {
 				missing := changes - idx
 				jump_to := r_len - missing
-				data := r_snapshot[max(jump_to, 0)]
-
-				err := blame.O0(c.WriteMessage(websocket.TextMessage, data))
-				if err != nil {
-					return err.WithAdditionalContext("error while writing message")
+				if jump_to >= 0 {
+					data := r_snapshot[jump_to]
+					err := blame.O0(c.WriteMessage(websocket.TextMessage, data))
+					if err != nil {
+						return err.WithAdditionalContext("error while writing message")
+					}
 				}
 				idx++
 			}
@@ -158,6 +163,8 @@ func (controller *websocket_controller) Rem(c *websocket.Conn) {
 }
 
 func (controller *websocket_controller) lookup(receiver string) *receiver_cache {
+	controller.guard.Lock()
+	defer controller.guard.Unlock()
 	r, has_r := controller.cache[receiver]
 	if !has_r {
 		r = &receiver_cache{}
@@ -171,16 +178,16 @@ func (controller *websocket_controller) lookup(receiver string) *receiver_cache 
 }
 
 func (controller *websocket_controller) Keep(receiver string, amount int) {
-	controller.guard.Lock()
 	r := controller.lookup(receiver)
+	controller.guard.Lock()
 	r.keep = amount
 	controller.guard.Unlock()
 }
 
 func (controller *websocket_controller) Purge(receivers ...string) {
 	for _, receiver := range receivers {
-		controller.guard.Lock()
 		r := controller.lookup(receiver)
+		controller.guard.Lock()
 		r.entries = make([][]byte, 0)
 		for _, v := range controller.connections {
 			v.guard.Lock()
@@ -209,12 +216,12 @@ func (controller *websocket_controller) Emit(receiver string, args ...any) error
 		return marsh_err.WithAdditionalContext("could not marshal message for websocket")
 	}
 
-	controller.guard.Lock()
 	r := controller.lookup(receiver)
-	r.entries = append(r.entries, data)
+	controller.guard.Lock()
 	if len(r.entries) >= r.keep {
 		r.entries = append([][]byte{}, r.entries[1:]...)
 	}
+	r.entries = append(r.entries, data)
 	_, has_changes := controller.changes[receiver]
 	if !has_changes {
 		controller.changes[receiver] = 0
