@@ -58,7 +58,7 @@ func (controller *websocket_controller) read_forever(c *websocket.Conn, c_data *
 		_, message, ws_read_err := blame.O2(c.ReadMessage())
 		if ws_read_err != nil {
 			if strings.Contains(ws_read_err.Error(), "1001 (going away)") {
-				controller.guard.Lock()
+				read_error <- nil
 				return
 			}
 			read_error <- ws_read_err.WithAdditionalContext("websocket failed to read")
