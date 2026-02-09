@@ -112,7 +112,7 @@ func (inst *impl) LogLN(args ...any) (int, error) {
 func (inst *impl) Debug(args ...any) (int, error) {
 	upstream := blame.L(1).String()
 	send_to_debug := append([]any{White(time.Now().Format(time.RFC3339Nano)), Magenta(upstream)}, append(args, NL)...)
-	if e := blame.O0(inst.Websocket.Emit("yap.log", send_to_debug...)); e != nil {
+	if e := blame.O0(inst.Websocket.Emit("yap.debug", send_to_debug...)); e != nil {
 		return 0, e.WithAdditionalContext("could not forward to websocket")
 	}
 	if _, e := blame.O1(inst.File.Log(send_to_debug)); e != nil {
