@@ -25,7 +25,7 @@ type colored struct {
 func (c *colored) String() string { return "" }
 
 func (c *colored) TokenizeForTerminal() ([]any, error) {
-	return []any{color_lut[c.key], c.v, color_reset_for_term}, nil
+	return []any{NoSpaceAfter(color_lut[c.key]), c.v, color_reset_for_term}, nil
 }
 func (c *colored) TokenizeForFile() ([]any, error) {
 	return []any{c.v}, nil
@@ -35,9 +35,14 @@ func (c *colored) TokenizeForWebsocket() ([]any, error) {
 	// if id_err != nil {
 	// 	return []any{}, id_err.WithAdditionalContext("could not generate id for html pair")
 	// }
-	return []any{HTML_PART(`<p style="color:red">`), c.v, HTML_PART(`</p>`)}, nil
+	return []any{HTML_PART(`<span style="display:content;color:` + c.key + `">`), c.v, HTML_PART(`</span>`)}, nil
 }
 
-func Red(input any) *colored {
-	return &colored{"red", input}
-}
+func Red(input any) *colored     { return &colored{"red", input} }
+func Green(input any) *colored   { return &colored{"green", input} }
+func Yellow(input any) *colored  { return &colored{"yellow", input} }
+func Blue(input any) *colored    { return &colored{"blue", input} }
+func Magenta(input any) *colored { return &colored{"magenta", input} }
+func Cyan(input any) *colored    { return &colored{"cyan", input} }
+func Gray(input any) *colored    { return &colored{"gray", input} }
+func White(input any) *colored   { return &colored{"white", input} }

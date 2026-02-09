@@ -5,40 +5,16 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta http-equiv="X-UA-Compatible" content="ie=edge" />
         <title>Go WebSocket Tutorial</title>
+        <script src="/yap/client.js"></script>
     </head>
     <body>
-        <h2>Hello World</h2>
-
         <script>
-            let socket = new WebSocket("ws://127.0.0.1:8080/ws");
-            console.log("Attempting Connection...");
-            window.foo = function () {
-                socket.send(
-                    JSON.stringify({ Receiver: "client.foo", Data: "bar" }),
-                );
-            };
-
-            socket.onopen = () => {
-                console.log("Successfully Connected");
-                // socket.send("Hi From the Client!");
-            };
-
-            socket.onclose = (event) => {
-                console.log("Socket Closed Connection: ", event);
-                // socket.send("Client Closed!");
-            };
-
-            socket.onerror = (error) => {
-                console.log("Socket Error: ", error);
-            };
-
-            socket.onmessage = ({ data }) => {
-                let parsed = JSON.parse(data);
-                console.log("Socket Message: ", parsed);
-                document.body.innerHTML += parsed.Tokens.map((v) => v.V).join(
-                    "",
-                );
-            };
+            YAP.subscribe("yap.log", render_yap_log, 100);
+            function render_yap_log(...tokens) {
+                let will_add = tokens.map((v) => v.V).join("");
+                console.log(will_add);
+                document.body.innerHTML += will_add;
+            }
         </script>
     </body>
 </html>

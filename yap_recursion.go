@@ -25,13 +25,23 @@ func recursively_for_terminal(inputs []any, spaces bool) ([]any, error) {
 			output = append(output, children...)
 			continue
 		}
-		s := fmt.Sprint(v)
+		var s string
+
+		no_space, no_spaces := v.(*no_space_after)
+
+		if no_spaces {
+			s = fmt.Sprint(no_space.v)
+		} else {
+			s = fmt.Sprint(v)
+		}
+
 		if len(s) > 0 {
 			output = append(output, s)
-			if spaces {
-				if i < len(inputs)-1 {
-					output = append(output, " ")
-				}
+		}
+
+		if spaces && !no_spaces {
+			if i < len(inputs)-1 {
+				output = append(output, " ")
 			}
 		}
 	}

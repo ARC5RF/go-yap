@@ -31,12 +31,13 @@ func where(file string) string {
 }
 
 var logfile = must(os.OpenFile(where("go_yap_demo.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, os.ModePerm))
-var console = yap.New(logfile, os.Stdout, 128, 100, true, false)
+var console = yap.New(logfile, os.Stdout, 128, 100, yap.INSERT_SPACES_IN_FILE|yap.INSERT_SPACES_IN_TERMINAL|yap.INSERT_SPACES_IN_WEBSOCKET)
 
 func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", homePage)
-	mux.HandleFunc("/ws", wsEndpoint)
+	mux.HandleFunc("/yap/ws", yap_ws)
+	mux.HandleFunc("/yap/client.js", yap.ServeClientJS)
 
 	console.Websocket.On("client.foo", func(b []byte) error {
 		console.Log(string(b))

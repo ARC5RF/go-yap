@@ -12,9 +12,31 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+type client_subscription struct {
+	Reciever string
+	Keep     int
+}
+type client_subscription_collection []*client_subscription
+
+func (subscriptions client_subscription_collection) Contains(reciever string) bool {
+	return slices.ContainsFunc(subscriptions, func(sub *client_subscription) bool {
+		return sub.Reciever == reciever
+	})
+}
+
+func client_subscriptions_from_strings(input []string, default_keep int) client_subscription_collection {
+	output := client_subscription_collection{}
+
+	for _, v := range input {
+		output = append(output, &client_subscription{v, default_keep})
+	}
+
+	return output
+}
+
 type websocket_client_data struct {
 	guard         *sync.Mutex
-	subscriptions []string
+	subscriptions client_subscription_collection
 	index         map[string]int
 }
 
@@ -36,13 +58,13 @@ type websocket_controller struct {
 	handlers                     []*client_message_handler
 }
 
-func (controller *websocket_controller) snapshot_cache_filtered(subscriptions []string) map[string]*receiver_cache {
+func (controller *websocket_controller) snapshot_cache_filtered(subscriptions client_subscription_collection) map[string]*receiver_cache {
 	controller.guard.Lock()
 	defer controller.guard.Unlock()
 
 	outupt := map[string]*receiver_cache{}
 	for Receiver, cache := range controller.cache {
-		if !slices.Contains(subscriptions, Receiver) {
+		if !subscriptions.Contains(Receiver) {
 			continue
 		}
 		//this is a shallow copy with side effects for performance
@@ -70,6 +92,30 @@ func (controller *websocket_controller) read_forever(c *websocket.Conn, c_data *
 		if marsh_err != nil {
 			read_error <- marsh_err
 			return
+		}
+
+		switch temp.Receiver {
+		case "yap.subscribe":
+			client_wants := &client_subscription{}
+			umarsh_err := blame.O0(json.Unmarshal(temp.Data, client_wants))
+			if umarsh_err != nil {
+				c_data.guard.Unlock()
+				read_error <- umarsh_err
+				return
+			}
+
+			controller.guard.Lock()
+			if !slices.Contains(controller.priority, client_wants.Reciever) {
+				controller.priority = append(controller.priority, client_wants.Reciever)
+			}
+			controller.guard.Unlock()
+
+			c_data.guard.Lock()
+			if !c_data.subscriptions.Contains(client_wants.Reciever) {
+				c_data.subscriptions = append(c_data.subscriptions, client_wants)
+			}
+			c_data.guard.Unlock()
+			continue
 		}
 
 		controller.guard.Lock()
@@ -147,7 +193,7 @@ func (controller *websocket_controller) write_forever(c *websocket.Conn, c_data 
 func (controller *websocket_controller) Add(c *websocket.Conn, subscriptions ...string) error {
 	// snapshot := hub.snapshot_cache_filtered(subscriptions)
 	controller.guard.Lock()
-	c_data := &websocket_client_data{&sync.Mutex{}, subscriptions, map[string]int{}}
+	c_data := &websocket_client_data{&sync.Mutex{}, client_subscriptions_from_strings(subscriptions, controller.default_keep), map[string]int{}}
 	controller.connections[c] = c_data
 	controller.guard.Unlock()
 
@@ -202,7 +248,7 @@ func (controller *websocket_controller) Purge(receivers ...string) {
 }
 
 func (controller *websocket_controller) Emit(receiver string, args ...any) error {
-	if controller == nil || controller.connections == nil {
+	if controller == nil {
 		return nil
 	}
 
