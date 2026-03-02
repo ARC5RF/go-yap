@@ -15,6 +15,7 @@ import (
 type client_subscription struct {
 	Reciever string
 	Keep     int
+	Cursor   int
 }
 type client_subscription_collection []*client_subscription
 
@@ -24,11 +25,20 @@ func (subscriptions client_subscription_collection) Contains(reciever string) bo
 	})
 }
 
+func (subscriptions client_subscription_collection) Lookup(reciever string) (*client_subscription, bool) {
+	for _, v := range subscriptions {
+		if v.Reciever == reciever {
+			return v, true
+		}
+	}
+	return nil, false
+}
+
 func client_subscriptions_from_strings(input []string, default_keep int) client_subscription_collection {
 	output := client_subscription_collection{}
 
 	for _, v := range input {
-		output = append(output, &client_subscription{v, default_keep})
+		output = append(output, &client_subscription{v, default_keep, 0})
 	}
 
 	return output
@@ -37,7 +47,6 @@ func client_subscriptions_from_strings(input []string, default_keep int) client_
 type websocket_client_data struct {
 	guard         *sync.Mutex
 	subscriptions client_subscription_collection
-	index         map[string]int
 }
 
 type receiver_cache struct {
@@ -141,6 +150,13 @@ func (controller *websocket_controller) write_forever(c *websocket.Conn, c_data 
 		snapshot := controller.snapshot_cache_filtered(c_data.subscriptions)
 		c_data.guard.Unlock()
 		for _, k := range controller.priority {
+			c_data.guard.Lock()
+			sub, has_idx := c_data.subscriptions.Lookup(k)
+			c_data.guard.Unlock()
+			if !has_idx {
+				continue
+			}
+
 			r, has_r := snapshot[k]
 			if !has_r {
 				continue
@@ -153,10 +169,6 @@ func (controller *websocket_controller) write_forever(c *websocket.Conn, c_data 
 			}
 			r_snapshot := append([][]byte{}, r.entries...)
 			r_len := len(r_snapshot)
-			idx, has_idx := c_data.index[k]
-			if !has_idx {
-				c_data.index[k] = 0
-			}
 			c_data.guard.Unlock()
 
 			controller.guard.Lock()
@@ -166,8 +178,8 @@ func (controller *websocket_controller) write_forever(c *websocket.Conn, c_data 
 			}
 			controller.guard.Unlock()
 
-			for changes > idx {
-				missing := changes - idx
+			for changes > sub.Cursor {
+				missing := changes - sub.Cursor
 				jump_to := r_len - missing
 				if jump_to >= 0 {
 					data := r_snapshot[jump_to]
@@ -176,11 +188,8 @@ func (controller *websocket_controller) write_forever(c *websocket.Conn, c_data 
 						return err.WithAdditionalContext("error while writing message")
 					}
 				}
-				idx++
+				sub.Cursor++
 			}
-			c_data.guard.Lock()
-			c_data.index[k] = idx
-			c_data.guard.Unlock()
 		}
 		select {
 		case err := <-read_error:
@@ -193,7 +202,7 @@ func (controller *websocket_controller) write_forever(c *websocket.Conn, c_data 
 func (controller *websocket_controller) Add(c *websocket.Conn, subscriptions ...string) error {
 	// snapshot := hub.snapshot_cache_filtered(subscriptions)
 	controller.guard.Lock()
-	c_data := &websocket_client_data{&sync.Mutex{}, client_subscriptions_from_strings(subscriptions, controller.default_keep), map[string]int{}}
+	c_data := &websocket_client_data{&sync.Mutex{}, client_subscriptions_from_strings(subscriptions, controller.default_keep)}
 	controller.connections[c] = c_data
 	controller.guard.Unlock()
 
@@ -237,9 +246,9 @@ func (controller *websocket_controller) Purge(receivers ...string) {
 		r.entries = make([][]byte, 0)
 		for _, v := range controller.connections {
 			v.guard.Lock()
-			_, has_index := v.index[receiver]
+			sub, has_index := v.subscriptions.Lookup(receiver)
 			if has_index {
-				v.index[receiver] = 0
+				sub.Cursor = 0
 			}
 			v.guard.Unlock()
 		}
